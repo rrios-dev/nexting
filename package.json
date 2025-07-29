@@ -1,16 +1,37 @@
 {
-  "name": "library-boilerplate",
+  "name": "nexting",
   "version": "1.0.0",
   "description": "A lightweight, type-safe library boilerplate for TypeScript/JavaScript",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.mjs",
+      "require": "./dist/server.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.mjs",
+      "require": "./dist/client.js"
+    }
+  },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "build": "tsup src/index.ts src/server/index.ts src/client/index.ts --format cjs,esm --dts --out-dir dist --clean",
+    "build:watch": "tsup src/index.ts src/server/index.ts src/client/index.ts --format cjs,esm --dts --out-dir dist --watch",
+    "dev": "bun run build:watch",
     "test": "jest",
+    "test:docs": "cd docs && bun run dev",
+    "link:docs": "bun run build && cd docs && bun install",
     "prepublishOnly": "bun run build",
     "lint": "eslint src"
   },
@@ -27,18 +48,25 @@
     "url": "https://github.com/rrios-dev/library-boilerplate"
   },
   "devDependencies": {
-    "@eslint/js": "^9.27.0",
+    "@eslint/js": "^9.32.0",
     "@types/bun": "latest",
-    "@types/jest": "^29.5.14",
-    "eslint": "^9.27.0",
-    "globals": "^16.1.0",
-    "jest": "^29.7.0",
-    "ts-jest": "^29.3.2",
-    "tsup": "^8.0.2",
-    "typescript": "^5.0.0",
-    "typescript-eslint": "^8.32.1"
+    "@types/jest": "^30.0.0",
+    "eslint": "^9.32.0",
+    "globals": "^16.3.0",
+    "jest": "^30.0.5",
+    "ts-jest": "^29.4.0",
+    "swr": "^2.3.4",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.38.0"
   },
   "peerDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "swr": "^2.3.4"
+  },
+  "dependencies": {
+    "http-status-codes": "^2.3.0",
+    "zod": "^4.0.13",
+    "async-xtate": "^1.x"
   }
 }
