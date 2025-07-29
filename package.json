@@ -1,0 +1,44 @@
+{
+  "name": "library-boilerplate",
+  "version": "1.0.0",
+  "description": "A lightweight, type-safe library boilerplate for TypeScript/JavaScript",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "test": "jest",
+    "prepublishOnly": "bun run build",
+    "lint": "eslint src"
+  },
+  "keywords": [
+    "library",
+    "boilerplate",
+    "typescript",
+    "javascript"
+  ],
+  "author": "Roberto Ríos <roberto@rrios.dev>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rrios-dev/library-boilerplate"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.27.0",
+    "@types/bun": "latest",
+    "@types/jest": "^29.5.14",
+    "eslint": "^9.27.0",
+    "globals": "^16.1.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.3.2",
+    "tsup": "^8.0.2",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.32.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
