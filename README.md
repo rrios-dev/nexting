@@ -3,23 +3,22 @@
 [![npm version](https://badge.fury.io/js/nexting.svg)](https://badge.fury.io/js/nexting)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/github/workflow/status/rrios-dev/nexting/CI)](https://github.com/rrios-dev/nexting/actions)
 
-A lightweight, type-safe library boilerplate for TypeScript/JavaScript with server actions, API controllers, and React hooks integration.
+A comprehensive, type-safe full-stack library for TypeScript/JavaScript applications. Nexting provides server actions, API controllers, React hooks, error handling, and professional logging - all with complete type safety and inference.
 
-## Features
+## ✨ Features
 
-- ✅ **Server Actions** with type-safe input/output validation
-- ✅ **API Controllers** for structured endpoint creation
-- ✅ **React Hooks** for server action integration (SWR-based)
-- ✅ **Error Handling** with structured error responses
-- ✅ **Professional Logging** system with multiple formatters and transports
-- ✅ **Full TypeScript** support with strict type inference
-- ✅ **Universal/Isomorphic** - works in both server and client environments
-- ✅ **Modular exports** - import only what you need
-- ✅ **Tests included** with complete coverage
+- 🎯 **Type-Safe Server Actions** - Create server functions with automatic input/output validation
+- 🔌 **API Controllers** - Build RESTful endpoints with structured error handling  
+- ⚛️ **React Hooks Integration** - SWR-based hooks for seamless server action integration
+- 🛡️ **Comprehensive Error Handling** - Structured error responses with user-friendly messages
+- 📊 **Professional Logging System** - Multiple formatters, transports, and request tracking
+- 🔍 **Full TypeScript Support** - Complete type inference and strict type checking
+- 🌐 **Universal/Isomorphic** - Works in both server and client environments
+- 📦 **Modular Exports** - Import only what you need with tree-shaking support
+- ✅ **Production Ready** - Comprehensive test coverage and battle-tested
 
-## Installation
+## 📦 Installation
 
 ```bash
 npm install nexting
@@ -29,109 +28,434 @@ yarn add nexting
 pnpm add nexting
 ```
 
-## Important: Environment-Specific Imports
-
-**🚨 CRITICAL**: To avoid "window is not defined" errors in server environments, use specific imports:
-
-### Backend/Server Usage
-```typescript
-// ✅ CORRECT - Server-safe imports
-import { makeServerAction, makeApiController, createLogger } from 'nexting/server';
-// or
-import { makeServerAction, createLogger } from 'nexting'; // Main export is server-safe
-
-// ❌ WRONG - Don't import client code in server
-import { makeServerActionMutationHook } from 'nexting'; // This would fail
+**Peer Dependencies:**
+```bash
+npm install typescript zod swr
 ```
 
-### Frontend/Client Usage
+## 🚨 Environment-Specific Imports
+
+**Critical**: To avoid runtime errors, use specific imports based on your environment:
+
+### 🖥️ Server/Backend Usage
 ```typescript
-// ✅ CORRECT - Client-specific imports
+// ✅ Server-safe imports
+import { makeServerAction, makeApiController, createLogger } from 'nexting/server';
+// or
+import { makeServerAction, ServerError } from 'nexting'; // Main export is server-safe
+```
+
+### 🌐 Client/Frontend Usage  
+```typescript
+// ✅ Client-specific imports
 import { makeServerActionImmutableHook, makeServerActionMutationHook } from 'nexting/client';
 ```
 
-### Universal Usage
+### 🔄 Universal Usage
 ```typescript
-// ✅ CORRECT - Safe in both environments
+// ✅ Safe in both environments
 import { ServerError, parseServerError, zod } from 'nexting';
 ```
 
-## Quick Start
+## 🚀 Quick Start
 
-### Server Action with Type Safety
+### 1. Create a Type-Safe Server Action
+
 ```typescript
+// actions/user-actions.ts
+'use server';
 import { makeServerAction, zod } from 'nexting/server';
 
-const createUserAction = makeServerAction({
-  input: zod.object({
-    name: zod.string(),
-    email: zod.string().email(),
+export const createUserAction = makeServerAction(async ({ name, email }) => {
+  // Fully typed parameters
+  const user = await db.user.create({ 
+    data: { name, email } 
+  });
+  
+  return { 
+    id: user.id, 
+    name: user.name, 
+    email: user.email 
+  };
+}, {
+  validationSchema: zod.object({
+    name: zod.string().min(3, 'Name must be at least 3 characters'),
+    email: zod.string().email('Invalid email format'),
   }),
-  handler: async ({ name, email }) => {
-    // Type-safe handler - name and email are properly typed
-    const user = await db.user.create({ data: { name, email } });
-    return { id: user.id, name: user.name };
-  },
+});
+
+// Simple action without validation
+export const getServerTimeAction = makeServerAction(async () => {
+  return { 
+    timestamp: new Date().toISOString(),
+    message: 'Server is running!' 
+  };
 });
 ```
 
-### React Hook for Server Actions
+### 2. Use Server Actions in React Components
+
 ```typescript
+// components/UserForm.tsx
+'use client';
 import { makeServerActionMutationHook } from 'nexting/client';
+import { createUserAction } from '../actions/user-actions';
 
 const useCreateUser = makeServerActionMutationHook({
   key: 'create-user',
   action: createUserAction,
 });
 
-// In your component
-function UserForm() {
-  const { trigger, isMutating, error } = useCreateUser.useAction();
-  
-  const handleSubmit = async (data: { name: string; email: string }) => {
-    await trigger(data);
+export function UserForm() {
+  const { trigger, isMutating, error } = useCreateUser.useAction({
+    options: {
+      onSuccess: (user) => {
+        console.log('User created:', user);
+        // user is fully typed!
+      },
+      onError: (error) => {
+        console.error('Creation failed:', error);
+      },
+    },
+  });
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    
+    await trigger({
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+    });
   };
-  
-  return (/* your form */);
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <input name="name" placeholder="Your name" required />
+      <input name="email" type="email" placeholder="Your email" required />
+      <button type="submit" disabled={isMutating}>
+        {isMutating ? 'Creating...' : 'Create User'}
+      </button>
+      {error && <p style={{ color: 'red' }}>{error.message}</p>}
+    </form>
+  );
 }
 ```
 
-## Basic Usage
+### 3. Create API Controllers for RESTful Endpoints
 
 ```typescript
-import { createLogger, LogLevel } from './logger';
+// api/users/route.ts
+import { makeApiController, zod } from 'nexting/server';
 
-// Basic logger
-const logger = createLogger({
-  level: LogLevel.INFO,
-  context: 'APP',
+const getUsersController = makeApiController(async (props, { request }) => {
+  const users = await db.user.findMany({
+    where: props.search ? {
+      OR: [
+        { name: { contains: props.search } },
+        { email: { contains: props.search } },
+      ],
+    } : {},
+    take: props.limit,
+    skip: props.offset,
+  });
+
+  return {
+    users,
+    total: users.length,
+    page: Math.floor(props.offset / props.limit) + 1,
+  };
+}, {
+  validationSchema: zod.object({
+    search: zod.string().optional(),
+    limit: zod.number().min(1).max(100).default(10),
+    offset: zod.number().min(0).default(0),
+  }),
 });
 
-await logger.info('Application started');
-await logger.error('Connection error', { database: 'primary' });
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const input = {
+    search: searchParams.get('search') || undefined,
+    limit: parseInt(searchParams.get('limit') || '10'),
+    offset: parseInt(searchParams.get('offset') || '0'),
+  };
+
+  return getUsersController(request, input);
+}
 ```
 
-## Request Logging
+## 📖 Core Concepts
+
+### 🎯 Server Actions
+
+Server actions are type-safe functions that run on the server with automatic validation and error handling.
+
+#### Basic Server Action
+```typescript
+import { makeServerAction } from 'nexting/server';
+
+const getDataAction = makeServerAction(async () => {
+  const data = await fetchData();
+  return { data, timestamp: Date.now() };
+});
+```
+
+#### Server Action with Validation
+```typescript
+import { makeServerAction, zod } from 'nexting/server';
+
+const updateProfileAction = makeServerAction(async ({ userId, profile }) => {
+  const updatedUser = await db.user.update({
+    where: { id: userId },
+    data: profile,
+  });
+  
+  return updatedUser;
+}, {
+  validationSchema: zod.object({
+    userId: zod.string().uuid(),
+    profile: zod.object({
+      name: zod.string().min(1),
+      bio: zod.string().max(500).optional(),
+    }),
+  }),
+});
+```
+
+#### Error Handling in Server Actions
+```typescript
+import { makeServerAction, ServerError } from 'nexting/server';
+
+const deleteUserAction = makeServerAction(async ({ userId }) => {
+  const user = await db.user.findUnique({ where: { id: userId } });
+  
+  if (!user) {
+    throw new ServerError({
+      message: 'User not found',
+      code: 'USER_NOT_FOUND',
+      status: 404,
+      uiMessage: 'The user you are trying to delete does not exist.',
+    });
+  }
+  
+  await db.user.delete({ where: { id: userId } });
+  return { success: true };
+}, {
+  validationSchema: zod.object({
+    userId: zod.string().uuid(),
+  }),
+});
+```
+
+### 🔌 API Controllers
+
+API controllers provide a structured way to create RESTful endpoints with automatic request/response handling.
 
 ```typescript
-import { createRequestLogger } from './logger';
+import { makeApiController, zod, StatusCodes } from 'nexting/server';
+
+const createPostController = makeApiController(async (data, { request }) => {
+  // Get user from request headers/auth
+  const userId = request.headers.get('user-id');
+  
+  const post = await db.post.create({
+    data: {
+      ...data,
+      authorId: userId,
+    },
+  });
+  
+  return {
+    post,
+    message: 'Post created successfully',
+  };
+}, {
+  validationSchema: zod.object({
+    title: zod.string().min(1).max(200),
+    content: zod.string().min(1),
+    tags: zod.array(zod.string()).optional(),
+  }),
+});
+
+// Use in your API route
+export async function POST(request: Request) {
+  const body = await request.json();
+  return createPostController(request, body);
+}
+```
+
+### ⚛️ React Hooks
+
+Nexting provides two types of hooks for different use cases:
+
+#### Mutation Hooks (for Create, Update, Delete operations)
+```typescript
+import { makeServerActionMutationHook } from 'nexting/client';
+
+const useCreatePost = makeServerActionMutationHook({
+  key: 'create-post',
+  action: createPostAction,
+});
+
+function CreatePostForm() {
+  const { trigger, isMutating, error, data } = useCreatePost.useAction({
+    options: {
+      onSuccess: (post) => {
+        // Redirect or show success message
+        router.push(`/posts/${post.id}`);
+      },
+      onError: (error) => {
+        toast.error(error.uiMessage || error.message);
+      },
+    },
+  });
+
+  const handleSubmit = async (formData: PostFormData) => {
+    await trigger(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* Form fields */}
+      <button disabled={isMutating}>
+        {isMutating ? 'Creating...' : 'Create Post'}
+      </button>
+    </form>
+  );
+}
+```
+
+#### Immutable Hooks (for Read operations with caching)
+```typescript
+import { makeServerActionImmutableHook } from 'nexting/client';
+
+const useUserProfile = makeServerActionImmutableHook({
+  key: 'user-profile',
+  action: getUserProfileAction,
+});
+
+function UserProfile({ userId }: { userId: string }) {
+  const { data, error, isLoading } = useUserProfile.useAction({
+    context: { userId },
+    options: {
+      revalidateOnFocus: false,
+      dedupingInterval: 5000,
+    },
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  
+  return (
+    <div>
+      <h1>{data.name}</h1>
+      <p>{data.email}</p>
+    </div>
+  );
+}
+```
+
+### 🛡️ Error Handling
+
+Nexting provides a comprehensive error handling system:
+
+#### ServerError Class
+```typescript
+import { ServerError } from 'nexting';
+
+// Create structured errors
+const error = new ServerError({
+  message: 'Database connection failed',
+  code: 'DB_CONNECTION_ERROR',
+  status: 500,
+  uiMessage: 'Something went wrong. Please try again later.',
+});
+
+// Errors are automatically serialized
+console.log(error.toJSON());
+// {
+//   message: 'Database connection failed',
+//   code: 'DB_CONNECTION_ERROR', 
+//   status: 500,
+//   uiMessage: 'Something went wrong. Please try again later.'
+// }
+```
+
+#### Error Parsing and Handling
+```typescript
+import { parseServerError } from 'nexting/server';
+
+try {
+  await riskyOperation();
+} catch (error) {
+  // Automatically converts any error to ServerError format
+  const serverError = parseServerError(error);
+  console.log(serverError.toJSON());
+}
+```
+
+### 📊 Professional Logging System
+
+Nexting includes a production-ready logging system with multiple formatters and transports.
+
+#### Basic Logger Setup
+```typescript
+import { createLogger, LogLevel } from 'nexting/server';
+
+const logger = createLogger({
+  level: LogLevel.INFO,
+  context: 'API',
+});
+
+await logger.info('Server started', { port: 3000 });
+await logger.error('Database error', { error: 'Connection timeout' });
+```
+
+#### Advanced Logger Configuration
+```typescript
+import { 
+  createLogger, 
+  LogLevel,
+  PrettyFormatter,
+  JsonFormatter,
+  ConsoleTransport,
+  FileTransport 
+} from 'nexting/server';
+
+const logger = createLogger({
+  level: LogLevel.DEBUG,
+  context: 'APP',
+  formatter: process.env.NODE_ENV === 'production' 
+    ? new JsonFormatter() 
+    : new PrettyFormatter(),
+  transports: [
+    new ConsoleTransport(),
+    new FileTransport({ 
+      filename: './logs/app.log',
+      maxFileSize: 50 * 1024 * 1024, // 50MB
+      maxFiles: 10 
+    }),
+  ],
+});
+```
+
+#### Request Logging
+```typescript
+import { createRequestLogger } from 'nexting/server';
 
 const requestLogger = createRequestLogger();
 
-// In your API handler
-export async function handleRequest(request: Request) {
+export async function middleware(request: Request) {
   const requestId = await requestLogger.logRequest(request);
+  const startTime = Date.now();
   
   try {
-    const startTime = Date.now();
-    
-    // Your logic here...
-    const result = await processRequest(request);
-    
+    const response = await next(request);
     const duration = Date.now() - startTime;
-    await requestLogger.logResponse(requestId, 200, duration);
     
-    return result;
+    await requestLogger.logResponse(requestId, response.status, duration);
+    return response;
   } catch (error) {
     await requestLogger.logError(requestId, error);
     throw error;
@@ -139,116 +463,50 @@ export async function handleRequest(request: Request) {
 }
 ```
 
-## Advanced Configuration
-
-### Logger with JSON format for production
-
-```typescript
-import { createLogger, LogLevel, JsonFormatter } from './logger';
-
-const prodLogger = createLogger({
-  level: LogLevel.WARN,
-  context: 'PROD',
-  formatter: new JsonFormatter(),
-});
-```
-
-### Logger with multiple transports
-
-```typescript
-import { 
-  createLogger, 
-  ConsoleTransport, 
-  FileTransport,
-  PrettyFormatter 
-} from './logger';
-
-const logger = createLogger({
-  level: LogLevel.DEBUG,
-  context: 'APP',
-  formatter: new PrettyFormatter(),
-  transports: [
-    new ConsoleTransport(),
-    new FileTransport({ 
-      filename: './logs/app.log',
-      maxFileSize: 50 * 1024 * 1024, // 50MB
-      maxFiles: 10 
-    })
-  ],
-});
-```
-
-## Child Loggers
-
-Child loggers inherit configuration from the parent but extend the context:
-
+#### Child Loggers
 ```typescript
 const mainLogger = createLogger({ context: 'APP' });
 const authLogger = mainLogger.child('AUTH');
 const dbLogger = mainLogger.child('DATABASE');
 
-await authLogger.info('User authenticated'); // [APP:AUTH]
-await dbLogger.error('Connection lost');     // [APP:DATABASE]
+await authLogger.info('User logged in'); // [APP:AUTH] User logged in
+await dbLogger.error('Connection lost'); // [APP:DATABASE] Connection lost
 ```
 
-## Log Levels
+## 🔧 Advanced Usage
 
+### Custom Error Handling
 ```typescript
-// In priority order (ERROR = highest priority)
-await logger.error('Critical error');    // Always shown
-await logger.warn('Warning');           // Shown if level >= WARN
-await logger.info('Information');       // Shown if level >= INFO  
-await logger.debug('Debug info');       // Shown if level >= DEBUG
-await logger.trace('Detailed trace');   // Shown if level >= TRACE
-```
+import { makeServerAction, parseServerError } from 'nexting/server';
 
-## Metadata and Request IDs
-
-```typescript
-// With metadata
-await logger.info('User logged in', {
-  userId: '123',
-  ip: '192.168.1.1',
-  userAgent: 'Mozilla/5.0...'
+const customAction = makeServerAction(async (data) => {
+  // Your logic here
+  return result;
+}, {
+  validationSchema: schema,
+  error: {
+    fallbackMessage: 'Custom error occurred',
+    includeStack: process.env.NODE_ENV === 'development',
+  },
+  logger: customLogger,
 });
-
-// With request ID for tracking
-await logger.error('Processing error', { error: 'timeout' }, 'req_123');
 ```
 
-## Available Formatters
+### Type Inference Utilities
+```typescript
+import type { 
+  InferActionInput, 
+  InferActionOutput, 
+  InferActionError 
+} from 'nexting/server';
 
-### PrettyFormatter (Development)
-```
-2023-12-01T10:30:00.000Z [INFO]  [APP] [req_123] User authenticated
-  Metadata: {
-    "userId": "123",
-    "method": "POST"
-  }
-```
-
-### JsonFormatter (Production)
-```json
-{
-  "timestamp": "2023-12-01T10:30:00.000Z",
-  "level": "INFO",
-  "message": "User authenticated",
-  "context": "APP",
-  "requestId": "req_123",
-  "metadata": {
-    "userId": "123",
-    "method": "POST"
-  }
-}
+// Extract types from your actions
+type CreateUserInput = InferActionInput<typeof createUserAction>;
+type CreateUserOutput = InferActionOutput<typeof createUserAction>;
+type CreateUserError = InferActionError<typeof createUserAction>;
 ```
 
-### SimpleFormatter (Minimalist)
-```
-2023-12-01T10:30:00.000Z [INFO] [APP] User authenticated
-```
-
-## Environment Configuration
-
+### Environment Configuration
 ```typescript
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
@@ -265,202 +523,69 @@ const logger = createLogger({
 });
 ```
 
-## Extensibility
+## 📚 API Reference
 
-### Custom Formatter
-
+### Server Actions
 ```typescript
-import { LogFormatter, LogEntry } from './logger-types';
-
-class CustomFormatter implements LogFormatter {
-  format(entry: LogEntry): string {
-    return `[${entry.level}] ${entry.message}`;
+function makeServerAction<T, R>(
+  handler: (input: T) => Promise<R>,
+  options?: {
+    validationSchema?: ZodSchema<T>;
+    error?: ParseServerErrorOptions;
+    logger?: Logger;
   }
-}
-
-logger.setFormatter(new CustomFormatter());
+): (input: T) => Promise<AsyncState<R, ActionError>>;
 ```
 
-### Custom Transport
-
+### API Controllers
 ```typescript
-import { LogTransport, LogEntry } from './logger-types';
-
-class DatabaseTransport implements LogTransport {
-  async log(formattedMessage: string, entry: LogEntry): Promise<void> {
-    // Send to database, external service, etc.
-    await this.sendToDatabase(entry);
+function makeApiController<T, R>(
+  controller: (input: T, context: { request: Request }) => Promise<R>,
+  options?: {
+    validationSchema?: ZodSchema<T>;
+    error?: ParseServerErrorOptions;
+    logger?: Logger;
   }
-}
-
-logger.addTransport(new DatabaseTransport());
+): (request: Request, input?: unknown) => Promise<Response>;
 ```
 
-## API Reference
-
-### Logger Interface
-
+### React Hooks
 ```typescript
-interface Logger {
-  error(message: string, metadata?: Record<string, any>, requestId?: string): Promise<void>;
-  warn(message: string, metadata?: Record<string, any>, requestId?: string): Promise<void>;
-  info(message: string, metadata?: Record<string, any>, requestId?: string): Promise<void>;
-  debug(message: string, metadata?: Record<string, any>, requestId?: string): Promise<void>;
-  trace(message: string, metadata?: Record<string, any>, requestId?: string): Promise<void>;
-  child(context: string): Logger;
-  setLevel(level: LogLevel): void;
-  setFormatter(formatter: LogFormatter): void;
-  addTransport(transport: LogTransport): void;
-}
+function makeServerActionMutationHook<TAction>(options: {
+  key: string;
+  action: TAction;
+}): {
+  useAction: (options?: SWRMutationConfiguration) => SWRMutationResponse;
+  makeKey: (context?: Record<string, unknown>) => object;
+};
+
+function makeServerActionImmutableHook<TAction>(options: {
+  key: string;
+  action: TAction;
+}): {
+  useAction: (options: {
+    context: InferActionInput<TAction>;
+    skip?: boolean;
+    options?: SWRConfiguration;
+  }) => SWRResponse;
+  makeKey: (context?: InferActionInput<TAction>) => object;
+};
 ```
 
-### RequestLogger Interface
-
-```typescript
-interface RequestLogger {
-  logRequest(request: Request): Promise<string>;
-  logResponse(requestId: string, status: number, duration: number): Promise<void>;
-  logError(requestId: string, error: Error | unknown): Promise<void>;
-}
-```
-
-### Configuration Types
-
-```typescript
-interface LoggerConfig {
-  level: LogLevel;
-  context: string;
-  formatter?: LogFormatter;
-  transports?: LogTransport[];
-}
-
-enum LogLevel {
-  ERROR = 0,
-  WARN = 1,
-  INFO = 2,
-  DEBUG = 3,
-  TRACE = 4
-}
-```
-
-## Best Practices
-
-1. **Use descriptive contexts** to facilitate debugging
-2. **Include relevant metadata** instead of concatenating strings
-3. **Use appropriate levels** based on message importance
-4. **Configure file rotation** to avoid huge files
-5. **Use JSON in production** for automatic parsing
-6. **Track requests** with unique IDs for complete traceability
-7. **Create child loggers** for different modules/components
-8. **Structure metadata** consistently across your application
-9. **Avoid logging sensitive information** like passwords or API keys
-10. **Use async logging** to prevent blocking operations
-
-## API Integration
-
-```typescript
-// middleware.ts
-import { requestLogger } from './logger';
-
-export async function loggingMiddleware(
-  request: Request,
-  next: (request: Request) => Promise<Response>
-): Promise<Response> {
-  const requestId = await requestLogger.logRequest(request);
-  const startTime = Date.now();
-  
-  try {
-    const response = await next(request);
-    const duration = Date.now() - startTime;
-    
-    await requestLogger.logResponse(
-      requestId, 
-      response.status, 
-      duration
-    );
-    
-    return response;
-  } catch (error) {
-    await requestLogger.logError(requestId, error);
-    throw error;
-  }
-}
-```
-
-## Performance Considerations
-
-- **Async Operations**: All logging operations are asynchronous to prevent blocking
-- **Memory Efficient**: Transports handle buffering and batching internally
-- **File Rotation**: Automatic rotation prevents disk space issues
-- **Context Reuse**: Child loggers reuse parent configuration for efficiency
-- **Metadata Serialization**: Efficient JSON serialization for structured data
-
-## Testing
-
-Run the test suite:
+## 🧪 Testing
 
 ```bash
+# Run tests
 npm test
-# or
-yarn test
-# or
-pnpm test
-```
 
-Run tests with coverage:
-
-```bash
+# Run tests with coverage
 npm run test:coverage
-# or
-yarn test:coverage
-# or
-pnpm test:coverage
+
+# Run docs development server
+npm run test:docs
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-**Issue: Logs not appearing**
-- Check if the log level is appropriate for your message level
-- Verify transport configuration
-- Ensure async operations are properly awaited
-
-**Issue: File transport not working**
-- Check file permissions for the log directory
-- Verify disk space availability
-- Ensure the directory exists or can be created
-
-**Issue: High memory usage**
-- Configure file rotation with appropriate limits
-- Check for circular references in metadata
-- Consider using structured logging instead of large objects
-
-**Issue: Performance problems**
-- Use appropriate log levels in production
-- Avoid logging in tight loops
-- Consider batching for high-volume scenarios
-
-### Debug Mode
-
-Enable debug logging to troubleshoot issues:
-
-```typescript
-const logger = createLogger({
-  level: LogLevel.DEBUG,
-  context: 'DEBUG',
-});
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Development Setup
+## 🏗️ Development Setup
 
 ```bash
 # Clone the repository
@@ -470,52 +595,36 @@ cd nexting
 # Install dependencies
 npm install
 
-# Run tests
-npm test
-
-# Build the project
+# Build the library
 npm run build
+
+# Start development mode
+npm run dev
+
+# Run documentation site
+npm run test:docs
 ```
 
-### Code Style
+## 🤝 Contributing
 
-- Follow TypeScript best practices
-- Use meaningful variable and function names
-- Add JSDoc comments for public APIs
-- Maintain test coverage above 90%
-- Follow the existing code formatting
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)  
+5. Open a Pull Request
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Changelog
+## 🙏 Acknowledgments
 
-### v1.0.0
-- Initial release with core logging functionality
-- Support for multiple formatters and transports
-- Request logging capabilities
-- Full TypeScript support
-- Comprehensive test suite
+- Built with TypeScript for complete type safety
+- Inspired by modern full-stack development patterns
+- Powered by Zod for runtime validation
+- Integrated with SWR for optimal data fetching
+- Designed for scalable production applications
 
-### v1.1.0
-- Added file rotation support
-- Improved performance for high-volume logging
-- Enhanced error handling
-- Added more configuration options
+---
 
-## Support
-
-If you encounter any issues or have questions:
-
-1. Check the [troubleshooting section](#troubleshooting)
-2. Search existing [issues](https://github.com/yourusername/nexting/issues)
-3. Create a new issue with detailed information
-4. For urgent issues, contact the maintainers
-
-## Acknowledgments
-
-- Inspired by popular logging libraries like Winston and Pino
-- Built with TypeScript for type safety
-- Designed for modern Node.js applications
-- Community feedback and contributions 
+**Made with ❤️ by [Roberto Ríos](https://github.com/rrios-dev)**
