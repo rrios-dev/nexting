@@ -6,6 +6,7 @@ import {
   CommonHandlerOptions,
   CommonHandlerOptionsWithSchema,
 } from './common-handler';
+import { NextResponse } from 'next/server';
 
 interface ApiControllerContext {
   request: Request;
@@ -15,7 +16,7 @@ interface ApiControllerContext {
 function makeApiController<R, T extends z.ZodTypeAny>(
   controllerFn: (props: z.infer<T>, context: ApiControllerContext) => Promise<R>,
   options: CommonHandlerOptionsWithSchema<T>
-): (request: Request, input?: unknown) => Promise<Response>;
+): (request: Request) => Promise<Response>;
 
 // Overload sin validationSchema
 function makeApiController<R>(
@@ -30,16 +31,17 @@ function makeApiController<T extends z.ZodTypeAny, R>(
     | ((context: ApiControllerContext) => Promise<R>),
   options?: CommonHandlerOptionsWithSchema<T> | CommonHandlerOptions,
 ) {
-  return async (request: Request, input?: unknown): Promise<Response> => {
+  return async (request: Request): Promise<Response> => {
     try {
       const context: ApiControllerContext = { request };
+      const input = await request.json();
 
       // Validar input si hay schema
       if (options && 'validationSchema' in options && options.validationSchema) {
         const validation = validateInput(input, options.validationSchema);
         
         if (!validation.isValid) {
-          return Response.json(
+          return NextResponse.json(
             validation.error,
             { status: validation.error?.status || StatusCodes.BAD_REQUEST },
           );
@@ -50,7 +52,7 @@ function makeApiController<T extends z.ZodTypeAny, R>(
           context: ApiControllerContext,
         ) => Promise<R>)(validation.data!, context);
 
-        return Response.json(result, { status: StatusCodes.OK });
+        return NextResponse.json(result, { status: StatusCodes.OK });
       }
 
       // Sin validación
@@ -58,10 +60,10 @@ function makeApiController<T extends z.ZodTypeAny, R>(
         context: ApiControllerContext,
       ) => Promise<R>)(context);
 
-      return Response.json(result, { status: StatusCodes.OK });
+      return NextResponse.json(result, { status: StatusCodes.OK });
     } catch (error) {
       const parsedError = handleError(error, options);
-      return Response.json(
+      return NextResponse.json(
         parsedError,
         { status: parsedError.status || StatusCodes.INTERNAL_SERVER_ERROR },
       );
