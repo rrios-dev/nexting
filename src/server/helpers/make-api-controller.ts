@@ -34,11 +34,10 @@ function makeApiController<T extends z.ZodTypeAny, R>(
   return async (request: Request): Promise<Response> => {
     try {
       const context: ApiControllerContext = { request };
-      const input = await request.json();
-
+      
       // Validar input si hay schema
       if (options && 'validationSchema' in options && options.validationSchema) {
-        const validation = validateInput(input, options.validationSchema);
+        const validation = validateInput(await request.json(), options.validationSchema);
         
         if (!validation.isValid) {
           return NextResponse.json(

@@ -27,7 +27,7 @@
   ],
   "scripts": {
     "build": "tsup",
-    "build:watch": "tsup --watch",
+    "build:watch": "bun run build --watch",
     "dev": "bun run build:watch",
     "test": "jest",
     "test:docs": "cd docs && bun run dev",
