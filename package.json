@@ -1,6 +1,6 @@
 {
   "name": "nexting",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A lightweight, type-safe library boilerplate for TypeScript/JavaScript",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
