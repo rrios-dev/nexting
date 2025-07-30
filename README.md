@@ -1,24 +1,23 @@
-# Professional Logging System
+# Nexting
 
 [![npm version](https://badge.fury.io/js/nexting.svg)](https://badge.fury.io/js/nexting)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://img.shields.io/github/workflow/status/rrios-dev/nexting/CI)](https://github.com/rrios-dev/nexting/actions)
 
-A complete, extensible, and configurable logging system for TypeScript server applications.
+A lightweight, type-safe library boilerplate for TypeScript/JavaScript with server actions, API controllers, and React hooks integration.
 
 ## Features
 
-- ✅ **Multiple log levels** (ERROR, WARN, INFO, DEBUG, TRACE)
-- ✅ **Extensible formatters** (JSON, Pretty, Simple)
-- ✅ **Modular transports** (Console, File)
-- ✅ **Hierarchical contexts** with child loggers
-- ✅ **Structured metadata** for rich logs
-- ✅ **Specialized request logging** for APIs
-- ✅ **Full TypeScript** with strict types
+- ✅ **Server Actions** with type-safe input/output validation
+- ✅ **API Controllers** for structured endpoint creation
+- ✅ **React Hooks** for server action integration (SWR-based)
+- ✅ **Error Handling** with structured error responses
+- ✅ **Professional Logging** system with multiple formatters and transports
+- ✅ **Full TypeScript** support with strict type inference
+- ✅ **Universal/Isomorphic** - works in both server and client environments
+- ✅ **Modular exports** - import only what you need
 - ✅ **Tests included** with complete coverage
-- ✅ **Automatic file rotation**
-- ✅ **Request ID tracking** for traceability
 
 ## Installation
 
@@ -30,18 +29,71 @@ yarn add nexting
 pnpm add nexting
 ```
 
+## Important: Environment-Specific Imports
+
+**🚨 CRITICAL**: To avoid "window is not defined" errors in server environments, use specific imports:
+
+### Backend/Server Usage
+```typescript
+// ✅ CORRECT - Server-safe imports
+import { makeServerAction, makeApiController, createLogger } from 'nexting/server';
+// or
+import { makeServerAction, createLogger } from 'nexting'; // Main export is server-safe
+
+// ❌ WRONG - Don't import client code in server
+import { makeServerActionMutationHook } from 'nexting'; // This would fail
+```
+
+### Frontend/Client Usage
+```typescript
+// ✅ CORRECT - Client-specific imports
+import { makeServerActionImmutableHook, makeServerActionMutationHook } from 'nexting/client';
+```
+
+### Universal Usage
+```typescript
+// ✅ CORRECT - Safe in both environments
+import { ServerError, parseServerError, zod } from 'nexting';
+```
+
 ## Quick Start
 
+### Server Action with Type Safety
 ```typescript
-import { createLogger, LogLevel } from 'nexting';
+import { makeServerAction, zod } from 'nexting/server';
 
-const logger = createLogger({
-  level: LogLevel.INFO,
-  context: 'APP',
+const createUserAction = makeServerAction({
+  input: zod.object({
+    name: zod.string(),
+    email: zod.string().email(),
+  }),
+  handler: async ({ name, email }) => {
+    // Type-safe handler - name and email are properly typed
+    const user = await db.user.create({ data: { name, email } });
+    return { id: user.id, name: user.name };
+  },
+});
+```
+
+### React Hook for Server Actions
+```typescript
+import { makeServerActionMutationHook } from 'nexting/client';
+
+const useCreateUser = makeServerActionMutationHook({
+  key: 'create-user',
+  action: createUserAction,
 });
 
-await logger.info('Application started');
-await logger.error('Connection error', { database: 'primary' });
+// In your component
+function UserForm() {
+  const { trigger, isMutating, error } = useCreateUser.useAction();
+  
+  const handleSubmit = async (data: { name: string; email: string }) => {
+    await trigger(data);
+  };
+  
+  return (/* your form */);
+}
 ```
 
 ## Basic Usage

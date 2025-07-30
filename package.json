@@ -26,8 +26,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts src/server/index.ts src/client/index.ts --format cjs,esm --dts --out-dir dist --clean",
-    "build:watch": "tsup src/index.ts src/server/index.ts src/client/index.ts --format cjs,esm --dts --out-dir dist --watch",
+    "build": "tsup",
+    "build:watch": "tsup --watch",
     "dev": "bun run build:watch",
     "test": "jest",
     "test:docs": "cd docs && bun run dev",
@@ -54,7 +54,6 @@
     "eslint": "^9.32.0",
     "globals": "^16.3.0",
     "jest": "^30.0.5",
-    "next": "^15.4.5",
     "swr": "^2.3.4",
     "ts-jest": "^29.4.0",
     "tsup": "^8.5.0",
@@ -63,8 +62,7 @@
   },
   "peerDependencies": {
     "typescript": "^5.0.0",
-    "swr": "^2.3.4",
-    "next": "^15.x"
+    "swr": "^2.3.4"
   },
   "dependencies": {
     "http-status-codes": "^2.3.0",
