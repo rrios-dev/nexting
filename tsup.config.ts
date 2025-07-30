@@ -14,7 +14,7 @@ export default defineConfig([
   },
   // Server entry
   {
-    entry: ['src/server/index.ts'],
+    entry: { server: 'src/server/index.ts' },
     format: ['cjs', 'esm'],
     dts: true,
     outDir: 'dist',
@@ -29,7 +29,7 @@ export default defineConfig([
   },
   // Client entry (browser-specific)
   {
-    entry: ['src/client/index.ts'],
+    entry: { client: 'src/client/index.ts' },
     format: ['cjs', 'esm'],
     dts: true,
     outDir: 'dist',
