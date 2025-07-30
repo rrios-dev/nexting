@@ -148,40 +148,35 @@ export function UserForm() {
 // api/users/route.ts
 import { makeApiController, zod } from 'nexting/server';
 
-const getUsersController = makeApiController(async (props, { request }) => {
+// Query parameters are automatically parsed from the URL
+const getUsersController = makeApiController(async ({ query }, { request }) => {
   const users = await db.user.findMany({
-    where: props.search ? {
+    where: query.search ? {
       OR: [
-        { name: { contains: props.search } },
-        { email: { contains: props.search } },
+        { name: { contains: query.search } },
+        { email: { contains: query.search } },
       ],
     } : {},
-    take: props.limit,
-    skip: props.offset,
+    take: query.limit,
+    skip: query.offset,
   });
 
   return {
     users,
     total: users.length,
-    page: Math.floor(props.offset / props.limit) + 1,
+    page: Math.floor(query.offset / query.limit) + 1,
   };
 }, {
-  validationSchema: zod.object({
+  querySchema: zod.object({
     search: zod.string().optional(),
-    limit: zod.number().min(1).max(100).default(10),
-    offset: zod.number().min(0).default(0),
+    limit: zod.coerce.number().min(1).max(100).default(10),
+    offset: zod.coerce.number().min(0).default(0),
   }),
 });
 
+// No need to manually parse query parameters
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const input = {
-    search: searchParams.get('search') || undefined,
-    limit: parseInt(searchParams.get('limit') || '10'),
-    offset: parseInt(searchParams.get('offset') || '0'),
-  };
-
-  return getUsersController(request, input);
+  return getUsersController(request);
 }
 ```
 
@@ -250,18 +245,18 @@ const deleteUserAction = makeServerAction(async ({ userId }) => {
 
 ### 🔌 API Controllers
 
-API controllers provide a structured way to create RESTful endpoints with automatic request/response handling.
+API controllers provide a structured way to create RESTful endpoints with automatic request/response handling and flexible validation for body, query parameters, and route parameters.
 
+#### Body Validation Only
 ```typescript
-import { makeApiController, zod, StatusCodes } from 'nexting/server';
+import { makeApiController, zod } from 'nexting/server';
 
-const createPostController = makeApiController(async (data, { request }) => {
-  // Get user from request headers/auth
+const createPostController = makeApiController(async ({ body }, { request }) => {
   const userId = request.headers.get('user-id');
   
   const post = await db.post.create({
     data: {
-      ...data,
+      ...body,
       authorId: userId,
     },
   });
@@ -271,17 +266,117 @@ const createPostController = makeApiController(async (data, { request }) => {
     message: 'Post created successfully',
   };
 }, {
-  validationSchema: zod.object({
+  bodySchema: zod.object({
     title: zod.string().min(1).max(200),
     content: zod.string().min(1),
     tags: zod.array(zod.string()).optional(),
   }),
 });
 
-// Use in your API route
+// Use in API route
 export async function POST(request: Request) {
-  const body = await request.json();
-  return createPostController(request, body);
+  return createPostController(request);
+}
+```
+
+#### Query Parameters Validation
+```typescript
+const getUsersController = makeApiController(async ({ query }, { request }) => {
+  const users = await db.user.findMany({
+    where: query.search ? {
+      OR: [
+        { name: { contains: query.search } },
+        { email: { contains: query.search } },
+      ],
+    } : {},
+    take: query.limit,
+    skip: query.offset,
+  });
+
+  return {
+    users,
+    total: users.length,
+    page: Math.floor(query.offset / query.limit) + 1,
+  };
+}, {
+  querySchema: zod.object({
+    search: zod.string().optional(),
+    limit: zod.coerce.number().min(1).max(100).default(10),
+    offset: zod.coerce.number().min(0).default(0),
+  }),
+});
+
+export async function GET(request: Request) {
+  return getUsersController(request);
+}
+```
+
+#### Route Parameters Validation
+```typescript
+const getUserController = makeApiController(async ({ params }, { request }) => {
+  const user = await db.user.findUnique({
+    where: { id: params.userId },
+  });
+
+  if (!user) {
+    throw new ServerError({
+      message: 'User not found',
+      status: 404,
+      uiMessage: 'The requested user does not exist.',
+    });
+  }
+
+  return { user };
+}, {
+  paramsSchema: zod.object({
+    userId: zod.string().uuid(),
+  }),
+});
+
+// app/api/users/[userId]/route.ts
+export async function GET(request: Request, { params }: { params: { userId: string } }) {
+  return getUserController(request, params);
+}
+```
+
+#### Combined Validation (Body + Query + Params)
+```typescript
+const updateUserController = makeApiController(async ({ body, query, params }, { request }) => {
+  // Verify user permissions
+  if (query.force !== 'true') {
+    // Check if user has admin privileges
+    const hasPermission = await checkUserPermissions(request);
+    if (!hasPermission) {
+      throw new ServerError({ message: 'Insufficient permissions', status: 403 });
+    }
+  }
+
+  const updatedUser = await db.user.update({
+    where: { id: params.userId },
+    data: body,
+  });
+
+  return {
+    user: updatedUser,
+    message: 'User updated successfully',
+  };
+}, {
+  bodySchema: zod.object({
+    name: zod.string().min(1).optional(),
+    email: zod.string().email().optional(),
+    bio: zod.string().max(500).optional(),
+  }),
+  querySchema: zod.object({
+    force: zod.enum(['true', 'false']).optional(),
+  }),
+  paramsSchema: zod.object({
+    userId: zod.string().uuid(),
+  }),
+});
+
+// app/api/users/[userId]/route.ts
+export async function PATCH(request: Request, { params }: { params: { userId: string } }) {
+  return updateUserController(request, params);
 }
 ```
 
@@ -538,15 +633,74 @@ function makeServerAction<T, R>(
 ```
 
 ### API Controllers
+
 ```typescript
-function makeApiController<T, R>(
-  controller: (input: T, context: { request: Request }) => Promise<R>,
-  options?: {
-    validationSchema?: ZodSchema<T>;
+// Body + Query + Params validation
+function makeApiController<BodySchema, QuerySchema, ParamsSchema, R>(
+  controller: (
+    args: { 
+      body: z.infer<BodySchema>; 
+      query: z.infer<QuerySchema>; 
+      params: z.infer<ParamsSchema> 
+    },
+    ctx: { request: NextRequest }
+  ) => Promise<R>,
+  options: {
+    bodySchema: BodySchema;
+    querySchema: QuerySchema;
+    paramsSchema: ParamsSchema;
     error?: ParseServerErrorOptions;
     logger?: Logger;
   }
-): (request: Request, input?: unknown) => Promise<Response>;
+): (request: NextRequest, params?: unknown) => Promise<Response>;
+
+// Body only validation
+function makeApiController<BodySchema, R>(
+  controller: (
+    args: { body: z.infer<BodySchema> },
+    ctx: { request: NextRequest }
+  ) => Promise<R>,
+  options: {
+    bodySchema: BodySchema;
+    error?: ParseServerErrorOptions;
+    logger?: Logger;
+  }
+): (request: NextRequest, params?: unknown) => Promise<Response>;
+
+// Query only validation
+function makeApiController<QuerySchema, R>(
+  controller: (
+    args: { query: z.infer<QuerySchema> },
+    ctx: { request: NextRequest }
+  ) => Promise<R>,
+  options: {
+    querySchema: QuerySchema;
+    error?: ParseServerErrorOptions;
+    logger?: Logger;
+  }
+): (request: NextRequest, params?: unknown) => Promise<Response>;
+
+// Params only validation
+function makeApiController<ParamsSchema, R>(
+  controller: (
+    args: { params: z.infer<ParamsSchema> },
+    ctx: { request: NextRequest }
+  ) => Promise<R>,
+  options: {
+    paramsSchema: ParamsSchema;
+    error?: ParseServerErrorOptions;
+    logger?: Logger;
+  }
+): (request: NextRequest, params?: unknown) => Promise<Response>;
+
+// No validation
+function makeApiController<R>(
+  controller: (ctx: { request: NextRequest }) => Promise<R>,
+  options?: {
+    error?: ParseServerErrorOptions;
+    logger?: Logger;
+  }
+): (request: NextRequest, params?: unknown) => Promise<Response>;
 ```
 
 ### React Hooks
