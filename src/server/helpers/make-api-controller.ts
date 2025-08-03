@@ -20,7 +20,11 @@ export function makeApiController<
   R
 >(
   controller: (
-    args: { body: z.infer<BodySchema>; query: z.infer<QuerySchema>; params: z.infer<ParamsSchema> },
+    args: {
+      body: z.infer<BodySchema>;
+      query: z.infer<QuerySchema>;
+      params: z.infer<ParamsSchema>;
+    },
     ctx: ApiControllerContext
   ) => Promise<R>,
   options: CommonHandlerOptions & {
@@ -71,7 +75,7 @@ export function makeApiController<
   controller: (
     args: { query: z.infer<QuerySchema>; params: z.infer<ParamsSchema> },
     ctx: ApiControllerContext
-  ) => Promise<ApiMakerResponse<R>  >,
+  ) => Promise<ApiMakerResponse<R>>,
   options: CommonHandlerOptions & {
     querySchema: QuerySchema;
     paramsSchema: ParamsSchema;
@@ -79,10 +83,7 @@ export function makeApiController<
 ): (request: NextRequest, params?: unknown) => Promise<Response>;
 
 // Only body
-export function makeApiController<
-  BodySchema extends ZodTypeAny,
-  R
->(
+export function makeApiController<BodySchema extends ZodTypeAny, R>(
   controller: (
     args: { body: z.infer<BodySchema> },
     ctx: ApiControllerContext
@@ -91,10 +92,7 @@ export function makeApiController<
 ): (request: NextRequest, params?: unknown) => Promise<Response>;
 
 // Only query
-export function makeApiController<
-  QuerySchema extends ZodTypeAny,
-  R
->(
+export function makeApiController<QuerySchema extends ZodTypeAny, R>(
   controller: (
     args: { query: z.infer<QuerySchema> },
     ctx: ApiControllerContext
@@ -103,10 +101,7 @@ export function makeApiController<
 ): (request: NextRequest, params?: unknown) => Promise<Response>;
 
 // Only params
-export function makeApiController<
-  ParamsSchema extends ZodTypeAny,
-  R
->(
+export function makeApiController<ParamsSchema extends ZodTypeAny, R>(
   controller: (
     args: { params: z.infer<ParamsSchema> },
     ctx: ApiControllerContext
@@ -125,7 +120,7 @@ export function makeApiController(
   controller: unknown,
   options?: unknown,
 ): (request: NextRequest, params?: unknown) => Promise<Response> {
-  return async (request: NextRequest, paramsInput?: unknown): Promise<Response> => {
+  return async (request: NextRequest): Promise<Response> => {
     try {
       const context: ApiControllerContext = { request };
 
@@ -200,7 +195,7 @@ export function makeApiController(
       if (hasParams) {
         // Next.js passes dynamic params as the second argument to handler
         const validated = validateInput(
-          paramsInput ?? {},
+          request.nextUrl.searchParams ?? {},
           (options as { paramsSchema: ZodTypeAny }).paramsSchema,
         );
         if (!validated.isValid) {
@@ -214,21 +209,26 @@ export function makeApiController(
       let result: ApiMakerResponse<unknown>;
       if (hasBody || hasQuery || hasParams) {
         result = await (
-          controller as (args: any, ctx: ApiControllerContext) => Promise<ApiMakerResponse<unknown>>
+          controller as (
+            args: any,
+            ctx: ApiControllerContext
+          ) => Promise<ApiMakerResponse<unknown>>
         )(args, context);
       } else {
         result = await (
-          controller as (ctx: ApiControllerContext) => Promise<ApiMakerResponse<unknown>>
+          controller as (
+            ctx: ApiControllerContext
+          ) => Promise<ApiMakerResponse<unknown>>
         )(context);
       }
 
       const responseStatus = result.status || StatusCodes.OK;
-      
+
       // Handle responses that should not have a body
       if (responseStatus === StatusCodes.NO_CONTENT) {
         return new NextResponse(null, { status: responseStatus });
       }
-      
+
       return NextResponse.json(result.data, { status: responseStatus });
     } catch (error) {
       const parsedError = handleError(error, options as any);
