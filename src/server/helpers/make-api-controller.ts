@@ -7,6 +7,7 @@ import {
   CommonHandlerOptions,
 } from './common-handler';
 import { NextRequest, NextResponse } from 'next/server';
+import { ApiMakerResponse } from '../types/response-types';
 
 interface ApiControllerContext {
   request: NextRequest;
@@ -38,7 +39,7 @@ export function makeApiController<
   controller: (
     args: { body: z.infer<BodySchema>; query: z.infer<QuerySchema> },
     ctx: ApiControllerContext
-  ) => Promise<R>,
+  ) => Promise<ApiMakerResponse<R>>,
   options: CommonHandlerOptions & {
     bodySchema: BodySchema;
     querySchema: QuerySchema;
@@ -54,7 +55,7 @@ export function makeApiController<
   controller: (
     args: { body: z.infer<BodySchema>; params: z.infer<ParamsSchema> },
     ctx: ApiControllerContext
-  ) => Promise<R>,
+  ) => Promise<ApiMakerResponse<R>>,
   options: CommonHandlerOptions & {
     bodySchema: BodySchema;
     paramsSchema: ParamsSchema;
@@ -70,7 +71,7 @@ export function makeApiController<
   controller: (
     args: { query: z.infer<QuerySchema>; params: z.infer<ParamsSchema> },
     ctx: ApiControllerContext
-  ) => Promise<R>,
+  ) => Promise<ApiMakerResponse<R>  >,
   options: CommonHandlerOptions & {
     querySchema: QuerySchema;
     paramsSchema: ParamsSchema;
@@ -85,7 +86,7 @@ export function makeApiController<
   controller: (
     args: { body: z.infer<BodySchema> },
     ctx: ApiControllerContext
-  ) => Promise<R>,
+  ) => Promise<ApiMakerResponse<R>>,
   options: CommonHandlerOptions & { bodySchema: BodySchema }
 ): (request: NextRequest, params?: unknown) => Promise<Response>;
 
@@ -97,7 +98,7 @@ export function makeApiController<
   controller: (
     args: { query: z.infer<QuerySchema> },
     ctx: ApiControllerContext
-  ) => Promise<R>,
+  ) => Promise<ApiMakerResponse<R>>,
   options: CommonHandlerOptions & { querySchema: QuerySchema }
 ): (request: NextRequest, params?: unknown) => Promise<Response>;
 
@@ -109,13 +110,13 @@ export function makeApiController<
   controller: (
     args: { params: z.infer<ParamsSchema> },
     ctx: ApiControllerContext
-  ) => Promise<R>,
+  ) => Promise<ApiMakerResponse<R>>,
   options: CommonHandlerOptions & { paramsSchema: ParamsSchema }
 ): (request: NextRequest, params?: unknown) => Promise<Response>;
 
 // No schemas
 export function makeApiController<R>(
-  controller: (ctx: ApiControllerContext) => Promise<R>,
+  controller: (ctx: ApiControllerContext) => Promise<ApiMakerResponse<R>>,
   options?: CommonHandlerOptions
 ): (request: NextRequest, params?: unknown) => Promise<Response>;
 
@@ -210,18 +211,25 @@ export function makeApiController(
         args.params = validated.data;
       }
 
-      let result;
+      let result: ApiMakerResponse<unknown>;
       if (hasBody || hasQuery || hasParams) {
         result = await (
-          controller as (args: any, ctx: ApiControllerContext) => Promise<unknown>
+          controller as (args: any, ctx: ApiControllerContext) => Promise<ApiMakerResponse<unknown>>
         )(args, context);
       } else {
         result = await (
-          controller as (ctx: ApiControllerContext) => Promise<unknown>
+          controller as (ctx: ApiControllerContext) => Promise<ApiMakerResponse<unknown>>
         )(context);
       }
 
-      return NextResponse.json(result, { status: StatusCodes.OK });
+      const responseStatus = result.status || StatusCodes.OK;
+      
+      // Handle responses that should not have a body
+      if (responseStatus === StatusCodes.NO_CONTENT) {
+        return new NextResponse(null, { status: responseStatus });
+      }
+      
+      return NextResponse.json(result.data, { status: responseStatus });
     } catch (error) {
       const parsedError = handleError(error, options as any);
       return NextResponse.json(parsedError, {

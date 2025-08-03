@@ -1,14 +1,19 @@
 import { makeApiController } from "../../../../dist/server.mjs";
 import { zod } from "nexting";
-
+import { StatusCodes } from "http-status-codes";
 
 export const POST = makeApiController(
-  async ({ message }) => {
+  async ({ body }) => {
     return {
-      message: message,
+      data: {
+        message: body.message,
+        timestamp: new Date().toISOString(),
+        processed: true,
+      },
+      status: StatusCodes.CREATED
     };
   }, {
-    validationSchema: zod.object({
+    bodySchema: zod.object({
       message: zod.string(),
     }),
   }

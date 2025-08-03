@@ -1,7 +1,7 @@
 {
   "name": "nexting",
   "version": "1.0.8",
-  "description": "A lightweight, type-safe library boilerplate for TypeScript/JavaScript",
+  "description": "A comprehensive, type-safe full-stack library for TypeScript/JavaScript applications. Provides server actions, API controllers, React hooks, error handling, and professional logging - all with complete type safety and inference.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -36,16 +36,28 @@
     "lint": "eslint src"
   },
   "keywords": [
-    "library",
-    "boilerplate",
     "typescript",
-    "javascript"
+    "javascript",
+    "next.js",
+    "server-actions",
+    "api-controllers",
+    "react-hooks",
+    "full-stack",
+    "type-safe",
+    "validation",
+    "error-handling",
+    "logging",
+    "swr",
+    "zod",
+    "isomorphic",
+    "universal",
+    "production-ready"
   ],
   "author": "Roberto Ríos <roberto@rrios.dev>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/rrios-dev/library-boilerplate"
+    "url": "https://github.com/rrios-dev/nexting"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",

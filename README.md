@@ -162,9 +162,11 @@ const getUsersController = makeApiController(async ({ query }, { request }) => {
   });
 
   return {
-    users,
-    total: users.length,
-    page: Math.floor(query.offset / query.limit) + 1,
+    data: {
+      users,
+      total: users.length,
+      page: Math.floor(query.offset / query.limit) + 1,
+    }
   };
 }, {
   querySchema: zod.object({
@@ -644,7 +646,7 @@ function makeApiController<BodySchema, QuerySchema, ParamsSchema, R>(
       params: z.infer<ParamsSchema> 
     },
     ctx: { request: NextRequest }
-  ) => Promise<R>,
+  ) => Promise<ApiMakerResponse<R>>,
   options: {
     bodySchema: BodySchema;
     querySchema: QuerySchema;
@@ -659,7 +661,7 @@ function makeApiController<BodySchema, R>(
   controller: (
     args: { body: z.infer<BodySchema> },
     ctx: { request: NextRequest }
-  ) => Promise<R>,
+  ) => Promise<ApiMakerResponse<R>>,
   options: {
     bodySchema: BodySchema;
     error?: ParseServerErrorOptions;
@@ -672,7 +674,7 @@ function makeApiController<QuerySchema, R>(
   controller: (
     args: { query: z.infer<QuerySchema> },
     ctx: { request: NextRequest }
-  ) => Promise<R>,
+  ) => Promise<ApiMakerResponse<R>>,
   options: {
     querySchema: QuerySchema;
     error?: ParseServerErrorOptions;
@@ -685,7 +687,7 @@ function makeApiController<ParamsSchema, R>(
   controller: (
     args: { params: z.infer<ParamsSchema> },
     ctx: { request: NextRequest }
-  ) => Promise<R>,
+  ) => Promise<ApiMakerResponse<R>>,
   options: {
     paramsSchema: ParamsSchema;
     error?: ParseServerErrorOptions;
@@ -695,12 +697,154 @@ function makeApiController<ParamsSchema, R>(
 
 // No validation
 function makeApiController<R>(
-  controller: (ctx: { request: NextRequest }) => Promise<R>,
+  controller: (ctx: { request: NextRequest }) => Promise<ApiMakerResponse<R>>,
   options?: {
     error?: ParseServerErrorOptions;
     logger?: Logger;
   }
 ): (request: NextRequest, params?: unknown) => Promise<Response>;
+
+// ApiMakerResponse Type
+interface ApiMakerResponse<T> {
+  data: T;
+  status?: StatusCodes;
+}
+```
+
+### API Response Object (ApiMakerResponse)
+
+All API controllers must return an `ApiMakerResponse<T>` object that provides control over both the response data and HTTP status code.
+
+```typescript
+import { makeApiController, ApiMakerResponse } from 'nexting/server';
+import { StatusCodes } from 'http-status-codes';
+
+// Basic response with default 200 OK status
+const getHealthController = makeApiController(async (): Promise<ApiMakerResponse<{
+  status: string;
+  timestamp: string;
+}>> => {
+  return {
+    data: {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+    }
+    // status defaults to StatusCodes.OK (200)
+  };
+});
+
+// Response with custom status code
+const createUserController = makeApiController(async ({ body }): Promise<ApiMakerResponse<{
+  success: boolean;
+  user: User;
+}>> => {
+  const user = await createUser(body);
+  
+  return {
+    data: {
+      success: true,
+      user,
+    },
+    status: StatusCodes.CREATED // 201
+  };
+}, {
+  bodySchema: userSchema,
+});
+
+// Conditional response status based on logic
+const processDataController = makeApiController(async ({ body }): Promise<ApiMakerResponse<{
+  message: string;
+  processed: boolean;
+}>> => {
+  if (body.shouldProcess) {
+    // Process immediately
+    await processData(body.data);
+    return {
+      data: {
+        message: 'Data processed successfully',
+        processed: true,
+      },
+      status: StatusCodes.OK // 200
+    };
+  } else {
+    // Queue for later processing
+    await queueData(body.data);
+    return {
+      data: {
+        message: 'Data queued for processing',
+        processed: false,
+      },
+      status: StatusCodes.ACCEPTED // 202
+    };
+  }
+}, {
+  bodySchema: dataSchema,
+});
+
+// Different status codes for different operations
+const userController = makeApiController(async ({ body, params }): Promise<ApiMakerResponse<{
+  message: string;
+  user?: User;
+}>> => {
+  switch (body.operation) {
+    case 'create':
+      const user = await createUser(body.userData);
+      return {
+        data: { message: 'User created', user },
+        status: StatusCodes.CREATED // 201
+      };
+    
+    case 'update':
+      const updatedUser = await updateUser(params.id, body.userData);
+      return {
+        data: { message: 'User updated', user: updatedUser },
+        status: StatusCodes.OK // 200
+      };
+    
+    case 'delete':
+      await deleteUser(params.id);
+      return {
+        data: { message: 'User deleted' },
+        status: StatusCodes.NO_CONTENT // 204
+      };
+    
+    default:
+      throw new ServerError({
+        message: 'Invalid operation',
+        code: 'INVALID_OPERATION',
+        status: StatusCodes.BAD_REQUEST,
+      });
+  }
+}, {
+  bodySchema: operationSchema,
+  paramsSchema: paramsSchema,
+});
+```
+
+#### Available Status Codes
+
+You can use any HTTP status code from the `http-status-codes` package:
+
+```typescript
+import { StatusCodes } from 'http-status-codes';
+
+// Success responses
+StatusCodes.OK              // 200 - Default for successful GET/PUT/PATCH
+StatusCodes.CREATED         // 201 - Resource created (POST)
+StatusCodes.ACCEPTED        // 202 - Request accepted for processing
+StatusCodes.NO_CONTENT      // 204 - Successful DELETE
+
+// Client error responses  
+StatusCodes.BAD_REQUEST     // 400 - Invalid request
+StatusCodes.UNAUTHORIZED    // 401 - Authentication required
+StatusCodes.FORBIDDEN       // 403 - Access denied
+StatusCodes.NOT_FOUND       // 404 - Resource not found
+StatusCodes.CONFLICT        // 409 - Resource conflict
+
+// Server error responses
+StatusCodes.INTERNAL_SERVER_ERROR  // 500 - Server error
+StatusCodes.BAD_GATEWAY           // 502 - Bad gateway
+StatusCodes.SERVICE_UNAVAILABLE   // 503 - Service unavailable
 ```
 
 ### React Hooks

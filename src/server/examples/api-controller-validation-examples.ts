@@ -1,25 +1,46 @@
 import { z } from 'zod';
 import makeApiController from '../helpers/make-api-controller';
 import { ServerError } from '../errors/server-error';
+import { ApiMakerResponse } from '../types/response-types';
+import { StatusCodes } from 'http-status-codes';
 
 /**
  * Ejemplos completos de validación para makeApiController
  * Estos ejemplos muestran todas las combinaciones posibles de esquemas
+ * usando el nuevo formato ApiMakerResponse<T>
  */
 
 // 1. Sin validación - Para endpoints simples que no requieren input
-export const healthCheckController = makeApiController(async ({ request }) => {
+export const healthCheckController = makeApiController(async ({ request }): Promise<ApiMakerResponse<{
+  status: string;
+  timestamp: string;
+  uptime: number;
+  memory: NodeJS.MemoryUsage;
+}>> => {
   return {
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
+    data: {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+    },
   };
 });
 
 // 2. Solo Body - Para POST/PUT requests con payload
 export const createProductController = makeApiController(
-  async ({ body }, { request }) => {
+  async ({ body }): Promise<ApiMakerResponse<{
+    success: boolean;
+    product: {
+      id: string;
+      name: string;
+      description?: string;
+      price: number;
+      category: string;
+      tags: string[];
+      createdAt: string;
+    };
+  }>> => {
     const product = {
       id: crypto.randomUUID(),
       ...body,
@@ -27,8 +48,11 @@ export const createProductController = makeApiController(
     };
 
     return {
-      success: true,
-      product,
+      data: {
+        success: true,
+        product,
+      },
+      status: StatusCodes.CREATED,
     };
   },
   {
@@ -44,7 +68,20 @@ export const createProductController = makeApiController(
 
 // 3. Solo Query - Para GET requests con filtros/paginación
 export const listProductsController = makeApiController(
-  async ({ query }, { request }) => {
+  async ({ query }): Promise<ApiMakerResponse<{
+    products: Array<{
+      id: string;
+      name: string;
+      category: string;
+      price: number;
+    }>;
+    pagination: {
+      total: number;
+      limit: number;
+      offset: number;
+      hasMore: boolean;
+    };
+  }>> => {
     // Simular filtrado y paginación
     const products = [
       { id: '1', name: 'Laptop', category: 'electronics', price: 999 },
@@ -58,12 +95,14 @@ export const listProductsController = makeApiController(
     );
 
     return {
-      products: filtered.slice(query.offset, query.offset + query.limit),
-      pagination: {
-        total: filtered.length,
-        limit: query.limit,
-        offset: query.offset,
-        hasMore: query.offset + query.limit < filtered.length,
+      data: {
+        products: filtered.slice(query.offset, query.offset + query.limit),
+        pagination: {
+          total: filtered.length,
+          limit: query.limit,
+          offset: query.offset,
+          hasMore: query.offset + query.limit < filtered.length,
+        },
       },
     };
   },
@@ -82,24 +121,34 @@ export const listProductsController = makeApiController(
 
 // 4. Solo Params - Para endpoints que solo necesitan parámetros de ruta
 export const getProductController = makeApiController(
-  async ({ params }, { request }) => {
+  async ({ params }): Promise<ApiMakerResponse<{
+    product: {
+      id: string;
+      name: string;
+      description: string;
+      price: number;
+      category: string;
+    };
+  }>> => {
     // Simular búsqueda de producto
     if (params.productId === 'not-found') {
       throw new ServerError({
         message: 'Product not found',
         code: 'PRODUCT_NOT_FOUND',
-        status: 404,
+        status: StatusCodes.NOT_FOUND,
         uiMessage: 'The requested product does not exist.',
       });
     }
 
     return {
-      product: {
-        id: params.productId,
-        name: 'Sample Product',
-        description: 'A sample product',
-        price: 99.99,
-        category: 'electronics',
+      data: {
+        product: {
+          id: params.productId,
+          name: 'Sample Product',
+          description: 'A sample product',
+          price: 99.99,
+          category: 'electronics',
+        },
       },
     };
   },
@@ -112,7 +161,23 @@ export const getProductController = makeApiController(
 
 // 5. Body + Query - Para búsquedas avanzadas con filtros complejos
 export const advancedSearchController = makeApiController(
-  async ({ body, query }, { request }) => {
+  async ({ body, query }): Promise<ApiMakerResponse<{
+    results: any[];
+    criteria: {
+      textSearch: string;
+      filters: any;
+      sorting: {
+        field: string;
+        order: string;
+      };
+      pagination: {
+        limit: number;
+        offset: number;
+      };
+    };
+    totalResults: number;
+    executionTime: number;
+  }>> => {
     const searchCriteria = {
       textSearch: body.query,
       filters: body.filters,
@@ -127,10 +192,12 @@ export const advancedSearchController = makeApiController(
     };
 
     return {
-      results: [],
-      criteria: searchCriteria,
-      totalResults: 0,
-      executionTime: Math.random() * 100,
+      data: {
+        results: [],
+        criteria: searchCriteria,
+        totalResults: 0,
+        executionTime: Math.random() * 100,
+      },
     };
   },
   {
@@ -156,7 +223,19 @@ export const advancedSearchController = makeApiController(
 
 // 6. Body + Params - Para actualizar entidades específicas
 export const updateProductController = makeApiController(
-  async ({ body, params }, { request }) => {
+  async ({ body, params }): Promise<ApiMakerResponse<{
+    success: boolean;
+    product: {
+      id: string;
+      name?: string;
+      description?: string;
+      price?: number;
+      category?: string;
+      tags?: string[];
+      updatedAt: string;
+    };
+    message: string;
+  }>> => {
     const updatedProduct = {
       id: params.productId,
       ...body,
@@ -164,9 +243,11 @@ export const updateProductController = makeApiController(
     };
 
     return {
-      success: true,
-      product: updatedProduct,
-      message: 'Product updated successfully',
+      data: {
+        success: true,
+        product: updatedProduct,
+        message: 'Product updated successfully',
+      },
     };
   },
   {
@@ -185,7 +266,19 @@ export const updateProductController = makeApiController(
 
 // 7. Query + Params - Para obtener datos relacionados con filtros
 export const getProductReviewsController = makeApiController(
-  async ({ query, params }, { request }) => {
+  async ({ query, params }): Promise<ApiMakerResponse<{
+    productId: string;
+    reviews: Array<{
+      id: string;
+      rating: number;
+      comment: string;
+      createdAt: string;
+    }>;
+    statistics: {
+      averageRating: number;
+      totalReviews: number;
+    };
+  }>> => {
     const reviews = [
       { id: '1', rating: 5, comment: 'Great product!', createdAt: '2024-01-01' },
       { id: '2', rating: 4, comment: 'Good value', createdAt: '2024-01-02' },
@@ -195,11 +288,13 @@ export const getProductReviewsController = makeApiController(
     );
 
     return {
-      productId: params.productId,
-      reviews: reviews.slice(query.offset, query.offset + query.limit),
-      statistics: {
-        averageRating: reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length,
-        totalReviews: reviews.length,
+      data: {
+        productId: params.productId,
+        reviews: reviews.slice(query.offset, query.offset + query.limit),
+        statistics: {
+          averageRating: reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length,
+          totalReviews: reviews.length,
+        },
       },
     };
   },
@@ -219,7 +314,17 @@ export const getProductReviewsController = makeApiController(
 
 // 8. Body + Query + Params - Validación completa para operaciones complejas
 export const bulkUpdateProductsController = makeApiController(
-  async ({ body, query, params }, { request }) => {
+  async ({ body, query, params }, { request }): Promise<ApiMakerResponse<{
+    dryRun: boolean;
+    category: string;
+    requestedUpdates: number;
+    applicableUpdates: number;
+    changes: any;
+    batchId: string;
+    estimatedTime: number;
+    status?: string;
+    processedAt?: string;
+  }>> => {
     // Verificar permisos si dry-run no está activado
     if (!query.dryRun) {
       const authHeader = request.headers.get('authorization');
@@ -227,7 +332,7 @@ export const bulkUpdateProductsController = makeApiController(
         throw new ServerError({
           message: 'Admin privileges required',
           code: 'INSUFFICIENT_PERMISSIONS',
-          status: 403,
+          status: StatusCodes.FORBIDDEN,
           uiMessage: 'You need admin permissions to perform bulk updates.',
         });
       }
@@ -255,7 +360,10 @@ export const bulkUpdateProductsController = makeApiController(
       });
     }
 
-    return result;
+    return {
+      data: result,
+      status: query.dryRun ? StatusCodes.OK : StatusCodes.ACCEPTED,
+    };
   },
   {
     bodySchema: z.object({
@@ -279,6 +387,68 @@ export const bulkUpdateProductsController = makeApiController(
   },
 );
 
+// 9. Ejemplo con diferentes status codes según el resultado
+export const conditionalResponseController = makeApiController(
+  async ({ body }): Promise<ApiMakerResponse<{
+    message: string;
+    action: string;
+    details?: any;
+  }>> => {
+    switch (body.action) {
+    case 'create':
+      return {
+        data: {
+          message: 'Resource created successfully',
+          action: body.action,
+          details: { resourceId: crypto.randomUUID() },
+        },
+        status: StatusCodes.CREATED,
+      };
+      
+    case 'update':
+      return {
+        data: {
+          message: 'Resource updated successfully',
+          action: body.action,
+        },
+        status: StatusCodes.OK,
+      };
+      
+    case 'delete':
+      return {
+        data: {
+          message: 'Resource deleted successfully',
+          action: body.action,
+        },
+        status: StatusCodes.NO_CONTENT,
+      };
+      
+    case 'queue':
+      return {
+        data: {
+          message: 'Action queued for processing',
+          action: body.action,
+          details: { queueId: crypto.randomUUID() },
+        },
+        status: StatusCodes.ACCEPTED,
+      };
+      
+    default:
+      throw new ServerError({
+        message: 'Invalid action',
+        code: 'INVALID_ACTION',
+        status: StatusCodes.BAD_REQUEST,
+      });
+    }
+  },
+  {
+    bodySchema: z.object({
+      action: z.enum(['create', 'update', 'delete', 'queue']),
+      data: z.any().optional(),
+    }),
+  },
+);
+
 export default {
   healthCheckController,
   createProductController,
@@ -288,4 +458,5 @@ export default {
   updateProductController,
   getProductReviewsController,
   bulkUpdateProductsController,
+  conditionalResponseController,
 };
