@@ -13,6 +13,10 @@ interface ApiControllerContext {
   request: NextRequest;
 }
 
+interface ApiControllerProps {
+  params?: Record<string, string>;
+}
+
 export function makeApiController<
   BodySchema extends ZodTypeAny,
   QuerySchema extends ZodTypeAny,
@@ -32,7 +36,7 @@ export function makeApiController<
     querySchema: QuerySchema;
     paramsSchema: ParamsSchema;
   }
-): (request: NextRequest, params?: unknown) => Promise<Response>;
+): (request: NextRequest, props?: ApiControllerProps) => Promise<Response>;
 
 // Body + Query
 export function makeApiController<
@@ -48,7 +52,7 @@ export function makeApiController<
     bodySchema: BodySchema;
     querySchema: QuerySchema;
   }
-): (request: NextRequest, params?: unknown) => Promise<Response>;
+): (request: NextRequest, props?: ApiControllerProps) => Promise<Response>;
 
 // Body + Params
 export function makeApiController<
@@ -64,7 +68,7 @@ export function makeApiController<
     bodySchema: BodySchema;
     paramsSchema: ParamsSchema;
   }
-): (request: NextRequest, params?: unknown) => Promise<Response>;
+): (request: NextRequest, props?: ApiControllerProps) => Promise<Response>;
 
 // Query + Params
 export function makeApiController<
@@ -80,7 +84,7 @@ export function makeApiController<
     querySchema: QuerySchema;
     paramsSchema: ParamsSchema;
   }
-): (request: NextRequest, params?: unknown) => Promise<Response>;
+): (request: NextRequest, props?: ApiControllerProps) => Promise<Response>;
 
 // Only body
 export function makeApiController<BodySchema extends ZodTypeAny, R>(
@@ -89,7 +93,7 @@ export function makeApiController<BodySchema extends ZodTypeAny, R>(
     ctx: ApiControllerContext
   ) => Promise<ApiMakerResponse<R>>,
   options: CommonHandlerOptions & { bodySchema: BodySchema }
-): (request: NextRequest, params?: unknown) => Promise<Response>;
+): (request: NextRequest, props?: ApiControllerProps) => Promise<Response>;
 
 // Only query
 export function makeApiController<QuerySchema extends ZodTypeAny, R>(
@@ -98,7 +102,7 @@ export function makeApiController<QuerySchema extends ZodTypeAny, R>(
     ctx: ApiControllerContext
   ) => Promise<ApiMakerResponse<R>>,
   options: CommonHandlerOptions & { querySchema: QuerySchema }
-): (request: NextRequest, params?: unknown) => Promise<Response>;
+): (request: NextRequest, props?: ApiControllerProps) => Promise<Response>;
 
 // Only params
 export function makeApiController<ParamsSchema extends ZodTypeAny, R>(
@@ -107,20 +111,23 @@ export function makeApiController<ParamsSchema extends ZodTypeAny, R>(
     ctx: ApiControllerContext
   ) => Promise<ApiMakerResponse<R>>,
   options: CommonHandlerOptions & { paramsSchema: ParamsSchema }
-): (request: NextRequest, params?: unknown) => Promise<Response>;
+): (request: NextRequest, props?: ApiControllerProps) => Promise<Response>;
 
 // No schemas
 export function makeApiController<R>(
   controller: (ctx: ApiControllerContext) => Promise<ApiMakerResponse<R>>,
   options?: CommonHandlerOptions
-): (request: NextRequest, params?: unknown) => Promise<Response>;
+): (request: NextRequest, props?: ApiControllerProps) => Promise<Response>;
 
 // Implementation
 export function makeApiController(
   controller: unknown,
   options?: unknown,
-): (request: NextRequest, params?: unknown) => Promise<Response> {
-  return async (request: NextRequest): Promise<Response> => {
+): (request: NextRequest, props?: ApiControllerProps) => Promise<Response> {
+  return async (
+    request: NextRequest,
+    props?: ApiControllerProps,
+  ): Promise<Response> => {
     try {
       const context: ApiControllerContext = { request };
 
@@ -195,7 +202,7 @@ export function makeApiController(
       if (hasParams) {
         // Next.js passes dynamic params as the second argument to handler
         const validated = validateInput(
-          request.nextUrl.searchParams ?? {},
+          props?.params ?? {},
           (options as { paramsSchema: ZodTypeAny }).paramsSchema,
         );
         if (!validated.isValid) {

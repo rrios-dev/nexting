@@ -1,4 +1,4 @@
-import { makeApiController } from "../../../../dist/server.mjs";
+import { makeApiController } from "../../../../../dist/server.mjs";
 import { zod } from "nexting";
 import { StatusCodes } from "http-status-codes";
 
