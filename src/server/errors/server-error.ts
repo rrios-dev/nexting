@@ -31,6 +31,7 @@ export default class ServerError<
       code: this.code,
       status: this.status,
       uiMessage: this.uiMessage,
+      meta: this.meta,
     };
   }
 }
