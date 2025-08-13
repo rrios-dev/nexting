@@ -1,6 +1,6 @@
 {
   "name": "nexting",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "A comprehensive, type-safe full-stack library for TypeScript/JavaScript applications. Provides server actions, API controllers, React hooks, error handling, and professional logging - all with complete type safety and inference.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
